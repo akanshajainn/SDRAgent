@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SDR Agent UI</title>
+    <style>
+      :root {
+        --bg: #fff8f1;
+        --card: #ffffff;
+        --text: #3f2a1d;
+        --muted: #8a6a54;
+        --accent: #ea580c;
+        --border: #f3d4be;
+        --soft: #fff1e6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top right, #ffd7b5, var(--bg) 45%);
+      }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 20px rgba(194, 65, 12, 0.1);
+      }
+      h1 { margin: 0 0 16px; font-size: 28px; }
+      h2 { margin: 0 0 10px; font-size: 18px; }
+      .grow { flex: 1 1 0; min-width: 300px; }
+      input {
+        flex: 1;
+        min-width: 260px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.7; cursor: wait; }
+      pre {
+        white-space: pre-wrap;
+        background: var(--soft);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+      .muted { color: var(--muted); }
+      .ok { color: #166534; }
+      .warn { color: #b45309; }
+      .err { color: #b91c1c; }
+      .info {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>SDR Agent</h1>
+      <div class="card" style="margin-bottom: 12px">
+        <div class="row">
+          <input id="domain" placeholder="apple.com" value="stripe.com" />
+          <button id="runBtn">Run Agent</button>
+          <button id="refreshBtn">Refresh CRM + Metrics</button>
+        </div>
+        <div id="status" class="muted" style="margin-top: 10px">Ready.</div>
+      </div>
+
+      <div class="row">
+        <div class="card grow">
+          <h2>Research</h2>
+          <p class="info">Website-derived company context, pain points, and value propositions used by the agent.</p>
+          <pre id="research">No run yet.</pre>
+        </div>
+        <div class="card grow">
+          <h2>Drafted Email</h2>
+          <p class="info">Final outreach draft after reflection rounds and quality checks.</p>
+          <pre id="email">No run yet.</pre>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 12px">
+        <div class="card grow">
+          <h2>Eval Metrics</h2>
+          <p class="info">Rolling 7-day aggregate of persisted evaluation scores.</p>
+          <pre id="metrics">Loading...</pre>
+        </div>
+        <div class="card grow">
+          <h2>Regression Watch</h2>
+          <p class="info">Compares recent quality against historical baseline to flag regressions.</p>
+          <pre id="regression">Loading...</pre>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 12px">
+        <h2>Dimension Trends</h2>
+        <p class="info">Per-dimension 7-day averages and daily trend points.</p>
+        <pre id="trendSummary">Loading...</pre>
+        <div style="overflow:auto; max-height: 260px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Samples</th>
+                <th>Relevance</th>
+                <th>Personalization</th>
+                <th>Tone</th>
+                <th>Clarity</th>
+                <th>Overall</th>
+              </tr>
+            </thead>
+            <tbody id="trendRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 12px">
+        <h2>CRM State (Full Records)</h2>
+        <p class="info">Full persisted CRM rows (research, email, and evaluation fields) in a scrollable grid.</p>
+        <div style="overflow:auto; max-height: 420px;">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Lead ID</th>
+                <th>Research ID</th>
+                <th>Email ID</th>
+                <th>Domain</th>
+                <th>Company</th>
+                <th>Summary</th>
+                <th>Pain Points</th>
+                <th>Value Props</th>
+                <th>Sources</th>
+                <th>Subject</th>
+                <th>Body</th>
+                <th>CTA</th>
+                <th>Reflect Rounds</th>
+                <th>Critique</th>
+                <th>Relevance</th>
+                <th>Personalization</th>
+                <th>Tone</th>
+                <th>Clarity</th>
+                <th>Overall</th>
+                <th>Rationale</th>
+              </tr>
+            </thead>
+            <tbody id="crmRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const domainEl = document.getElementById("domain");
+      const runBtn = document.getElementById("runBtn");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const statusEl = document.getElementById("status");
+      const researchEl = document.getElementById("research");
+      const emailEl = document.getElementById("email");
+      const metricsEl = document.getElementById("metrics");
+      const regressionEl = document.getElementById("regression");
+      const trendSummaryEl = document.getElementById("trendSummary");
+      const trendRowsEl = document.getElementById("trendRows");
+      const crmRowsEl = document.getElementById("crmRows");
+
+      function isValidCompanyDomain(input) {
+        const domain = input.trim().toLowerCase();
+        if (!domain) return false;
+        const normalized = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+        const domainPattern = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
+        if (!domainPattern.test(normalized)) return false;
+        const parts = normalized.split(".");
+        return parts[parts.length - 1].length >= 2;
+      }
+
+      function setStatus(msg, cls = "muted") {
+        statusEl.className = cls;
+        statusEl.textContent = msg;
+      }
+
+      async function fetchJson(path, options = {}) {
+        const res = await fetch(path, options);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`${path} failed: ${res.status} ${text}`);
+        }
+        return res.json();
+      }
+
+      function renderCRM(rows) {
+        const esc = (value) =>
+          String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;");
+        const truncate = (value, size = 120) => {
+          const text = String(value ?? "");
+          return text.length > size ? `${text.slice(0, size)}...` : text;
+        };
+
+        crmRowsEl.innerHTML = "";
+        for (const row of rows) {
+          const tr = document.createElement("tr");
+          const painPoints = Array.isArray(row.pain_points) ? row.pain_points.join(" | ") : "";
+          const valueProps = Array.isArray(row.value_props) ? row.value_props.join(" | ") : "";
+          const sources = Array.isArray(row.sources) ? row.sources.join(" | ") : "";
+          tr.innerHTML = `
+            <td title="${esc(row.created_at)}">${esc(row.created_at)}</td>
+            <td>${esc(row.lead_id)}</td>
+            <td>${esc(row.research_snapshot_id)}</td>
+            <td>${esc(row.email_id)}</td>
+            <td>${esc(row.domain)}</td>
+            <td>${esc(row.company_name)}</td>
+            <td title="${esc(row.summary)}">${esc(truncate(row.summary))}</td>
+            <td title="${esc(painPoints)}">${esc(truncate(painPoints))}</td>
+            <td title="${esc(valueProps)}">${esc(truncate(valueProps))}</td>
+            <td title="${esc(sources)}">${esc(truncate(sources))}</td>
+            <td title="${esc(row.subject)}">${esc(truncate(row.subject, 100))}</td>
+            <td title="${esc(row.body)}">${esc(truncate(row.body, 140))}</td>
+            <td title="${esc(row.call_to_action)}">${esc(truncate(row.call_to_action, 80))}</td>
+            <td>${esc(row.reflection_rounds)}</td>
+            <td>${esc(row.final_critique_score)}</td>
+            <td>${esc(row.relevance)}</td>
+            <td>${esc(row.personalization)}</td>
+            <td>${esc(row.tone)}</td>
+            <td>${esc(row.clarity)}</td>
+            <td>${Number(row.overall_score).toFixed(2)}</td>
+            <td title="${esc(row.rationale)}">${esc(truncate(row.rationale, 100))}</td>
+          `;
+          crmRowsEl.appendChild(tr);
+        }
+      }
+
+      function renderDimensionTrends(data) {
+        trendSummaryEl.textContent = JSON.stringify(data.last_7d, null, 2);
+        trendRowsEl.innerHTML = "";
+        for (const row of data.daily) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row.day}</td>
+            <td>${row.samples}</td>
+            <td>${Number(row.relevance).toFixed(2)}</td>
+            <td>${Number(row.personalization).toFixed(2)}</td>
+            <td>${Number(row.tone).toFixed(2)}</td>
+            <td>${Number(row.clarity).toFixed(2)}</td>
+            <td>${Number(row.overall).toFixed(2)}</td>
+          `;
+          trendRowsEl.appendChild(tr);
+        }
+      }
+
+      async function refreshSidePanels() {
+        const [metrics, regression, trends, crm] = await Promise.all([
+          fetchJson("/metrics"),
+          fetchJson("/eval-regression"),
+          fetchJson("/metrics/dimensions-trend?days=14"),
+          fetchJson("/crm/full?limit=500"),
+        ]);
+        metricsEl.textContent = JSON.stringify(metrics, null, 2);
+        regressionEl.textContent = JSON.stringify(regression, null, 2);
+        regressionEl.className = regression.status === "regressing" ? "warn" : "ok";
+        renderDimensionTrends(trends);
+        renderCRM(crm);
+      }
+
+      runBtn.addEventListener("click", async () => {
+        const domain = domainEl.value.trim();
+        if (!isValidCompanyDomain(domain)) {
+          setStatus("Please enter a valid company domain (example: stripe.com).", "err");
+          return;
+        }
+        runBtn.disabled = true;
+        setStatus(`Running agent for ${domain}...`);
+        try {
+          const result = await fetchJson("/run-agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain }),
+          });
+          researchEl.textContent = JSON.stringify(result.research, null, 2);
+          emailEl.textContent = JSON.stringify(result.email, null, 2);
+          await refreshSidePanels();
+          setStatus(`Completed run for ${result.domain} (lead_id=${result.lead_id}).`, "ok");
+        } catch (err) {
+          setStatus(String(err), "err");
+        } finally {
+          runBtn.disabled = false;
+        }
+      });
+
+      refreshBtn.addEventListener("click", async () => {
+        setStatus("Refreshing panels...");
+        try {
+          await refreshSidePanels();
+          setStatus("Panels refreshed.", "ok");
+        } catch (err) {
+          setStatus(String(err), "err");
+        }
+      });
+
+      refreshSidePanels()
+        .then(() => setStatus("Ready."))
+        .catch((err) => setStatus(String(err), "err"));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+[project]
+name = "sdr-agent"
+version = "0.1.0"
+description = "FastAPI SDR backend for company research, outbound email drafting, evaluation, and persistence."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiosqlite==0.22.1",
+    "fastapi==0.134.0",
+    "httpx==0.28.1",
+    "ollama==0.6.0",
+    "pydantic==2.12.5",
+    "pytest==8.4.2",
+    "python-dotenv==1.2.1",
+    "uvicorn==0.41.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["data*"]
