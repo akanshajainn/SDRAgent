@@ -1,15 +1,21 @@
 # SDRAgent
 
-Deterministic async FastAPI SDR agent that:
+A simple python SDR agent that:
 - takes a company domain
 - researches company context
 - drafts and refines an outbound email
 - evaluates output quality
 - persists CRM-style records in SQLite
 
+We have a lean UI to interact with it and see the past research runs and their evaluations.
+
 ## 5-Minute Setup
 
 ### Recommended: Docker
+
+This setup works without any api key from any llm providers, we are setting up ollama and using a small model(llama3.2:3b) for demo purposes. You can use GPT4ALL for another local LLM setup or openAI if you have a key.
+
+Note: First time `ollama` run can take a few minutes (model download).
 
 ```bash
 git clone <your-repo-url>
@@ -18,8 +24,7 @@ cp .env.example .env
 docker compose --profile ollama up --build
 ```
 
-Notes:
-- First time `ollama` run can take a few minutes (model download).
+To try another model, replace the docker compose command above:
 - OpenAI mode: set `OPENAI_API_KEY` in `.env`, then run `docker compose --profile openai up --build`.
 - GPT4All mode: run `docker compose --profile gpt4all up --build`.
 
