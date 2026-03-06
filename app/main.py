@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
     store = LeadStore(settings.db_path)
     llm = build_llm()
     crm = CRMTool(store=store)
-    researcher = ResearchTool()
+    researcher = ResearchTool(llm=llm)
     agent = SDRAgent(llm=llm, crm=crm, researcher=researcher)
 
     app.state.store = store

@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from app.llm.base import BaseLLM
+from app.tools.prompts import json_repair_system_prompt, json_repair_user_prompt
 
 
 class JSONValidationError(ValueError):
@@ -84,13 +85,8 @@ async def parse_json_with_repair(  # noqa: C901
         pass
 
     for _ in range(max_repair_retries):
-        repair_system_prompt = "You fix invalid JSON. Return JSON only."
-        repair_user_prompt = (
-            "Repair this output into valid JSON with exactly these keys: "
-            f"{required_keys}.\n"
-            "Do not add markdown.\n\n"
-            f"Input:\n{candidate}"
-        )
+        repair_system_prompt = json_repair_system_prompt()
+        repair_user_prompt = json_repair_user_prompt(required_keys, candidate)
         candidate = await llm.generate(repair_system_prompt, repair_user_prompt)
         try:
             return _validate(candidate)

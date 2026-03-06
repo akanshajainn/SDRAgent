@@ -1,21 +1,31 @@
 # SDRAgent
 
-A simple python SDR agent that:
-- takes a company domain
-- researches company context
-- drafts and refines an outbound email
-- evaluates output quality
+Python SDR agent that:
+- accepts a company domain
+- researches public company context
+- drafts and refines outbound email copy
+- evaluates quality dimensions
 - persists CRM-style records in SQLite
 
-We have a lean UI to interact with it and see the past research runs and their evaluations.
+Includes a minimal FastAPI UI and API for runs, CRM history, and score trends.
 
-## 5-Minute Setup
+## Requirements
 
-### Recommended: Docker
+- Python `>=3.11` (Docker image uses Python `3.13`)
+- `uv` for local dependency/runtime commands
+- Docker + Docker Compose v2 (only for containerized setup)
 
-This setup works without any api key from any llm providers, we are setting up ollama and using a small model(llama3.2:3b) for demo purposes. You can use GPT4ALL for another local LLM setup or openAI if you have a key.
+Provider-specific requirements:
+- `ollama` (default): running Ollama service + pulled model (for Docker profile, this is automated)
+- `openai`: valid `OPENAI_API_KEY`
+- `gpt4all`: local model file and path configured
+- `mock`: set `LLM_PROVIDER=mock` and `ALLOW_MOCK_LLM=true` (tests/dev only)
 
-Note: First time `ollama` run can take a few minutes (model download).
+## Quick Start
+
+### Option A: Docker (recommended)
+
+First run downloads an Ollama model and may take a few minutes.
 
 ```bash
 git clone <your-repo-url>
@@ -24,105 +34,83 @@ cp .env.example .env
 docker compose --profile ollama up --build
 ```
 
-To try another model, replace the docker compose command above:
-- OpenAI mode: set `OPENAI_API_KEY` in `.env`, then run `docker compose --profile openai up --build`.
-- GPT4All mode: run `docker compose --profile gpt4all up --build`.
+After containers are healthy, open the UI:
+- `http://127.0.0.1:8000/`
 
-### Local (uv)
+Other provider profiles:
+- OpenAI: set `OPENAI_API_KEY` in `.env`, then run `docker compose --profile openai up --build`
+- GPT4All: run `docker compose --profile gpt4all up --build`
+
+### Option B: Local (uv)
 
 ```bash
 git clone <your-repo-url>
 cd SDRAgent
-uv sync
 cp .env.example .env
+uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-## Frontend:
+App endpoints:
 - UI: `http://127.0.0.1:8000/`
-- API docs: `http://127.0.0.1:8000/docs`
+- OpenAPI docs: `http://127.0.0.1:8000/docs`
 
-## Architecture
+## Configuration
 
-Agent flow:
+Default provider in `.env.example`: `LLM_PROVIDER=ollama`
 
-`research -> generate -> reflect -> evaluate -> persist`
+Main env vars by provider:
+- `ollama`: `OLLAMA_MODEL_NAME`, `OLLAMA_BASE_URL`, `OLLAMA_TIMEOUT_SECONDS`
+- `openai`: `OPENAI_API_KEY`, `OPENAI_MODEL_NAME`, `OPENAI_BASE_URL`, `OPENAI_TIMEOUT_SECONDS`
+- `gpt4all`: `GPT4ALL_MODEL_NAME`, `GPT4ALL_MODEL_PATH`, `GPT4ALL_MAX_TOKENS`
+- `mock`: `ALLOW_MOCK_LLM=true`
 
-```mermaid
-flowchart TD
-    UI["Frontend UI (FastAPI static page)"] --> API["FastAPI routes"]
-    API --> AGENT["SDRAgent orchestrator"]
+Cross-cutting:
+- `SDR_AGENT_DB_PATH` (SQLite path)
+- `MAX_REFLECTION_ROUNDS`
 
-    AGENT --> RT["ResearchTool"]
-    AGENT --> LLM["BaseLLM adapter"]
-    AGENT --> CRM["CRMTool"]
-
-    LLM --> OLLAMA["OllamaAdapter"]
-    LLM --> OPENAI["OpenAIAdapter"]
-    LLM --> GPT4ALL["GPT4AllAdapter"]
-
-    AGENT --> GUARD["JSON validation and repair"]
-    AGENT --> RETRY["Retry helper (exponential backoff)"]
-
-    CRM --> STORE["LeadStore"]
-    STORE --> DB[("SQLite: leads, research_snapshots, emails, evaluations")]
-
-    API --> METRICS["Metrics and regression endpoints"]
-    METRICS --> STORE
-```
-
-## Quick Codebase Map:
-- `app/agent`: orchestration logic
-- `app/tools`: explicit tool boundaries
-- `app/llm`: provider adapters + factory
-- `app/db`: persistence and SQL
-- `app/api`: HTTP contracts + handlers
-- `app/static`: minimal frontend
-- `tests`: mock-backed E2E smoke test
-
-## Provider Configuration
-
-Default in `.env.example`: `LLM_PROVIDER=ollama`
-
-Supported providers:
-- `ollama`
-  - `OLLAMA_MODEL_NAME`
-  - `OLLAMA_BASE_URL`
-- `openai`
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL_NAME`
-  - `OPENAI_BASE_URL`
-- `gpt4all`
-  - `GPT4ALL_MODEL_NAME`
-  - `GPT4ALL_MODEL_PATH`
-- `mock` (tests/dev only)
-  - set `ALLOW_MOCK_LLM=true`
-
-## Run Tests
+## Tests
 
 ```bash
 uv run pytest -q
 ```
 
-The E2E test uses `mock`, so it does not require external model services.
+The E2E test uses `mock` and does not require external model services.
 
 ## API Endpoints
 
-- `POST /run-agent`
-  - runs one full agent execution for a domain
-- `GET /metrics`
-  - 7-day aggregate eval count and overall average
-- `GET /metrics/dimensions-trend?days=14`
-  - per-dimension 7-day averages + daily trend points
-- `GET /crm/recent?limit=15`
-  - compact recent CRM records
-- `GET /crm/full?limit=500`
-  - full CRM rows for detailed table view
-- `GET /eval-regression?threshold_drop=0.5`
-  - recent-vs-baseline regression status
+- `POST /run-agent` - run one full agent execution for a domain
+- `GET /metrics` - 7-day aggregate eval count and overall average
+- `GET /metrics/dimensions-trend?days=14` - per-dimension rolling averages + daily points
+- `GET /crm/recent?limit=15` - compact recent CRM rows
+- `GET /crm/full?limit=500` - full CRM rows
+- `GET /eval-regression?threshold_drop=0.5` - recent-vs-baseline regression status
 
-## Design Notes
+## Architecture
 
-- Orchestration: raw async agent flow for clarity and debuggability.
-- Non-determinism handling: strict JSON contracts, repair retries, bounded reflection loop.
-- Deliberate tradeoff: minimal built-in UI instead of separate frontend framework to maximize shipping speed while preserving end-to-end usability.
+Flow: `input domain -> research -> generate -> reflect/rewrite -> evaluate -> persist`
+
+```mermaid
+flowchart TD
+    U["UI: Enter Domain"] --> R["POST /run-agent"]
+    R --> A["SDRAgent Orchestrator"]
+    A --> T1["ResearchTool (Fetch + Extract Context)"]
+    T1 --> G["Generate Draft (LLM)"]
+    G --> Q{"Quality Good Enough?"}
+    Q -->|No| W["Rewrite (Bounded Loop)"]
+    W --> Q
+    Q -->|Yes| E["Evaluate (Relevance, Personalization, Tone, Clarity)"]
+    E --> T2["CRMTool"]
+    T2 --> DB[("SQLite: Leads, Research, Emails, Evaluations")]
+    U --> V["GET Metrics / CRM / Regression"]
+    V --> DB
+```
+
+Code map:
+- `app/agent`: orchestration
+- `app/tools`: research extraction, prompts, CRM tool
+- `app/llm`: provider adapters + factory
+- `app/db`: schema + queries
+- `app/api`: request/response models + routes
+- `app/static`: frontend
+- `tests`: E2E + tool-level tests

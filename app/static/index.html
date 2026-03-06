@@ -74,7 +74,7 @@
       <h1>SDR Agent</h1>
       <div class="card" style="margin-bottom: 12px">
         <div class="row">
-          <input id="domain" placeholder="apple.com" value="stripe.com" />
+          <input id="domain" placeholder="apple.com" value="loom.com" />
           <button id="runBtn">Run Agent</button>
           <button id="refreshBtn">Refresh CRM + Metrics</button>
         </div>
@@ -282,7 +282,7 @@
       runBtn.addEventListener("click", async () => {
         const domain = domainEl.value.trim();
         if (!isValidCompanyDomain(domain)) {
-          setStatus("Please enter a valid company domain (example: stripe.com).", "err");
+          setStatus("Please enter a valid company domain (example: loom.com).", "err");
           return;
         }
         runBtn.disabled = true;

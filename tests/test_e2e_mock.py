@@ -9,6 +9,7 @@ from app.main import create_app
 
 
 def test_e2e_mock_agent_run(tmp_path: Path) -> None:
+    """Run a full mock-provider flow and verify key API endpoints."""
     original_provider = settings.llm_provider
     original_db_path = settings.db_path
     original_allow_mock_llm = settings.allow_mock_llm

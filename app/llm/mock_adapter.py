@@ -10,6 +10,21 @@ class MockAdapter(BaseLLM):
 
     async def generate(self, system_prompt: str, user_prompt: str) -> str:
         prompt = f"{system_prompt}\n{user_prompt}".lower()
+        if "keys: company_name, summary, pain_points, value_props" in prompt:
+            return json.dumps(
+                {
+                    "company_name": "Acme Corp",
+                    "summary": "Acme Corp offers software services for operations teams.",
+                    "pain_points": [
+                        "Manual operations workflows",
+                        "Fragmented tooling across teams",
+                    ],
+                    "value_props": [
+                        "Operations workflow software",
+                        "Team collaboration and reporting features",
+                    ],
+                }
+            )
         if "keys: subject, body, call_to_action" in prompt:
             return json.dumps(
                 {

@@ -4,10 +4,14 @@ from pydantic import BaseModel, Field
 
 
 class RunAgentRequest(BaseModel):
+    """Input payload for triggering one SDR run."""
+
     domain: str = Field(min_length=3, description="Company domain")
 
 
 class EmailPayload(BaseModel):
+    """Serialized email artifact returned by the agent."""
+
     subject: str
     body: str
     call_to_action: str
@@ -16,6 +20,8 @@ class EmailPayload(BaseModel):
 
 
 class EvaluationPayload(BaseModel):
+    """Dimension-level quality scores with explanation."""
+
     relevance: int
     personalization: int
     tone: int
@@ -25,6 +31,8 @@ class EvaluationPayload(BaseModel):
 
 
 class ResearchPayload(BaseModel):
+    """Research summary extracted from public company pages."""
+
     summary: str
     pain_points: list[str]
     value_props: list[str]
@@ -32,6 +40,8 @@ class ResearchPayload(BaseModel):
 
 
 class RunAgentResponse(BaseModel):
+    """Full API response for `/run-agent`."""
+
     lead_id: int
     research_snapshot_id: int
     email_id: int
@@ -43,11 +53,15 @@ class RunAgentResponse(BaseModel):
 
 
 class MetricsResponse(BaseModel):
+    """Top-line evaluation metrics for the last 7 days."""
+
     evaluations_last_7d: int
     avg_overall_score_last_7d: float
 
 
 class DimensionAverages(BaseModel):
+    """Averages by scoring dimension."""
+
     relevance: float
     personalization: float
     tone: float
@@ -56,6 +70,8 @@ class DimensionAverages(BaseModel):
 
 
 class DailyDimensionPoint(BaseModel):
+    """One day of aggregate quality metrics."""
+
     day: str
     samples: int
     relevance: float
@@ -66,11 +82,15 @@ class DailyDimensionPoint(BaseModel):
 
 
 class DimensionTrendResponse(BaseModel):
+    """Trend payload combining rolling and daily aggregates."""
+
     last_7d: DimensionAverages
     daily: list[DailyDimensionPoint]
 
 
 class CRMRecord(BaseModel):
+    """Compact CRM row used in recent-runs tables."""
+
     lead_id: int
     domain: str
     company_name: str
@@ -83,6 +103,8 @@ class CRMRecord(BaseModel):
 
 
 class CRMFullRecord(BaseModel):
+    """Full-fidelity CRM row with research, email, and evaluation data."""
+
     lead_id: int
     domain: str
     company_name: str
@@ -107,6 +129,8 @@ class CRMFullRecord(BaseModel):
 
 
 class EvalRegressionResponse(BaseModel):
+    """Regression detector response comparing recent vs baseline windows."""
+
     status: str
     baseline_avg_overall_score: float
     recent_avg_overall_score: float
